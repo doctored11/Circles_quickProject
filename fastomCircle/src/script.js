@@ -43,6 +43,9 @@ const directionChangeThreshold = 45;
 
 function startDrawing(e) {
     isDrawing = true;
+    isClosed = false
+    is360R = false
+    is360L = false;
     drawingCoordinates = [];
 
     previousVector = null;
@@ -57,32 +60,49 @@ function startDrawing(e) {
     ctx.strokeStyle = lineColor;
 }
 
+let hasCrossedTrigger = false;
 function draw(e) {
     if (!isDrawing) return;
 
     const x = e.clientX - canvas.getBoundingClientRect().left;
     const y = e.clientY - canvas.getBoundingClientRect().top;
 
+
+    if (checkIfCircleFinished()) {
+        isDrawing = false;
+        endDrawing();
+        return;
+    }
+
+
     drawingCoordinates.push({ x, y });
     ctx.lineTo(x, y);
     checkDirectionChange();
-
-    updatePercentage()
+    updatePercentage();
     ctx.stroke();
+
+
+
+
+
+
+
 }
 
+
+
 function endDrawing() {
-    if (isDrawing) {
-        isDrawing = false;
-        ctx.closePath();
-        updatePercentage()
+
+    isDrawing = false;
+    ctx.closePath();
+    // updatePercentage()
 
 
-        calculateDeviationPercentage()
-        console.log(drawingCoordinates);
 
-        drawIdealCircle()
-    }
+    console.log(drawingCoordinates);
+    calculateDeviationPercentage()
+    drawIdealCircle()
+
 }
 // 
 
@@ -136,20 +156,16 @@ function calculateVector(point1, point2) {
 }
 
 function calculateAngle(vector1, vector2) {
-    const dotProduct = vector1.x * vector2.x + vector1.y * vector2.y;
-    const magnitude1 = Math.sqrt(vector1.x ** 2 + vector1.y ** 2);
-    const magnitude2 = Math.sqrt(vector2.x ** 2 + vector2.y ** 2);
-    if (Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI) > 40) {
-        console.log(vector1, vector2, Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI))
-    }
-    return Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI);
+    const angle = Math.atan2(vector2.y, vector2.x) - Math.atan2(vector1.y, vector1.x);
+    return angle >= 0 ? angle * (180 / Math.PI) : (2 * Math.PI + angle) * (180 / Math.PI);
 }
+
 
 function checkDirectionChange() {
     const numPoints = drawingCoordinates.length;
 
     const vectorLength = 5
-    const angleThreshold = 45
+    const angleThreshold = 90
     const minPoints = 3 * vectorLength
 
     if (numPoints >= minPoints) {
@@ -166,13 +182,14 @@ function checkDirectionChange() {
 
         console.log(angleChange);
 
-        if (angleChange > angleThreshold) {
+        if (angleChange < 360 - angleThreshold && angleChange > angleThreshold) {
             drawRedCircle(drawingCoordinates[numPoints - vectorLength * 2].x, drawingCoordinates[numPoints - vectorLength * 2].y);
             drawRedCircle(drawingCoordinates[numPoints - vectorLength].x, drawingCoordinates[numPoints - vectorLength].y);
             drawRedCircle(drawingCoordinates[numPoints - 1].x, drawingCoordinates[numPoints - 1].y);
 
+            isDrawing = false
             endDrawing();
-            percentageContainer.textContent = "Ты изменил направление!";
+            // percentageContainer.textContent = "Ты изменил направление!";
             console.log("Ты изменил направление!", angleChange);
             return;
         }
@@ -199,18 +216,61 @@ function calculateDeviationPercentage() {
     if (numPoints === 0) {
         return 0;
     }
+    if (!isClosed) {
+        percentageContainer.textContent = `Круг не закончен`;
+        return
+
+    }
 
     let totalPercentage = 0;
+    let radialMatchCount = 0;
 
     for (let i = 0; i < numPoints; i++) {
         const userRadius = calculateDistanceToCenter(drawingCoordinates[i].x, drawingCoordinates[i].y);
         const deviation = Math.abs(userRadius - idealRadius);
-        const percentage = Math.max(0, Math.min(100, (1 - deviation / idealRadius) * 100));
+        const percentage = Math.max(0, Math.min(100, (1 - deviation / idealRadius) * 100)) || 100;
+        // console.log(percentage, userRadius, idealRadius)
         totalPercentage += percentage;
+
+        if (userRadius >= 0.9 * idealRadius && userRadius <= 1.1 * idealRadius) {
+            radialMatchCount++;
+        }
     }
 
     const averagePercentage = totalPercentage / numPoints;
-    percentageContainer.textContent = `Совпадение: ${averagePercentage}%`;
+    const radialPercentage = (radialMatchCount / numPoints) * 100;
+    percentageContainer.textContent = `Радиальное совпадение: ${averagePercentage.toFixed(2)}%, Реальное совпадение: ${radialPercentage.toFixed(2)}%`;
 
     return averagePercentage;
 }
+
+let is360R, is360L = false
+function checkIfCircleFinished() {
+    const numPoints = drawingCoordinates.length;
+
+    if (numPoints < 20) {
+        return false;
+    }
+
+
+    const startVector = calculateVector(
+        { x: canvas.width / 2, y: canvas.height / 2 },
+        drawingCoordinates[0]
+    );
+
+    const endVector = calculateVector(
+        { x: canvas.width / 2, y: canvas.height / 2 },
+        drawingCoordinates[numPoints - 1]
+    );
+
+    const angleChange = calculateAngle(startVector, endVector);
+    if (angleChange > 140 && angleChange < 180 && !is360L) is360R = true
+    if (angleChange < 210 && angleChange > 180 && !is360R) is360L = true
+
+    console.log("угол круга  = ", angleChange, is360L, is360R);
+    result = (((is360R && angleChange < 50) || (is360L && angleChange > 290)))
+    isClosed = result
+
+    return result;
+}
+
