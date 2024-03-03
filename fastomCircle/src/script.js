@@ -1,15 +1,24 @@
+const percentageContainer = document.getElementById('percentageContainer');
+let idealRadius = 0;
+
 const canvas = document.getElementById('myCanvas');
 const ctx = canvas.getContext('2d');
 let isDrawing = false;
 let drawingCoordinates = [];
+let previousVector = null;
+
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-ctx.fillStyle = "#ff1111"; 
-ctx.beginPath();
-ctx.arc(canvas.width / 2, canvas.height / 2, 2, 0, 2 * Math.PI);
-ctx.fill();
+function paintCentralPoint() {
+    ctx.fillStyle = "#ff1111";
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, 2, 0, 2 * Math.PI);
+    ctx.fill();
+}
+paintCentralPoint()
+
 
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
@@ -29,10 +38,18 @@ canvas.addEventListener('mouseout', endDrawing);
 
 const lineWidth = 5;
 const lineColor = "#0000ff";
+const directionChangeThreshold = 45;
 
 function startDrawing(e) {
     isDrawing = true;
-    drawingCoordinates = []; 
+    drawingCoordinates = [];
+
+    previousVector = null;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
+    paintCentralPoint()
     ctx.beginPath();
     ctx.moveTo(e.clientX - canvas.getBoundingClientRect().left, e.clientY - canvas.getBoundingClientRect().top);
     ctx.lineWidth = lineWidth;
@@ -45,14 +62,119 @@ function draw(e) {
     const x = e.clientX - canvas.getBoundingClientRect().left;
     const y = e.clientY - canvas.getBoundingClientRect().top;
 
-    drawingCoordinates.push({ x, y }); 
+    drawingCoordinates.push({ x, y });
     ctx.lineTo(x, y);
+    checkDirectionChange();
+
+    updatePercentage()
     ctx.stroke();
 }
 
 function endDrawing() {
-    isDrawing = false;
-    ctx.closePath();
+    if (isDrawing) {
+        isDrawing = false;
+        ctx.closePath();
+        updatePercentage()
+        console.log(drawingCoordinates);
+    }
+}
+// 
 
-    console.log(drawingCoordinates);
+function updatePercentage() {
+    const maxIdealPoints = 50;
+
+    let idealRadius;
+
+    if (drawingCoordinates.length <= maxIdealPoints) {
+        idealRadius = calculateDistanceToCenter(
+            drawingCoordinates[0].x,
+            drawingCoordinates[0].y
+        );
+    } else {
+        let totalRadius = 0;
+        // оптимизировать потом - добавляя последнюю точку к старому значению радиус +/2
+        for (let i = 0; i < drawingCoordinates.length; i++) {
+            totalRadius += calculateDistanceToCenter(
+                drawingCoordinates[i].x,
+                drawingCoordinates[i].y
+            );
+        }
+        idealRadius = totalRadius / maxIdealPoints;
+    }
+
+    const userRadius = Math.sqrt(
+        (drawingCoordinates[drawingCoordinates.length - 1].x - canvas.width / 2) ** 2 +
+        (drawingCoordinates[drawingCoordinates.length - 1].y - canvas.height / 2) ** 2
+    );
+
+    const matchPercentage = Math.floor((1 - Math.abs(idealRadius - userRadius) / idealRadius) * 100);
+    // console.log('радиус: ' + (idealRadius))
+    percentageContainer.textContent = `Совпадение: ${matchPercentage}%`;
+}
+
+function calculateDistanceToCenter(x, y) {
+    return Math.sqrt((x - canvas.width / 2) ** 2 + (y - canvas.height / 2) ** 2);
+}
+
+function calculateDistanceBetweenPoints(point1, point2) {
+    return Math.sqrt((point2.x - point1.x) ** 2 + (point2.y - point1.y) ** 2);
+}
+
+
+function calculateVector(point1, point2) {
+    return {
+        x: point2.x - point1.x,
+        y: point2.y - point1.y
+    };
+}
+
+function calculateAngle(vector1, vector2) {
+    const dotProduct = vector1.x * vector2.x + vector1.y * vector2.y;
+    const magnitude1 = Math.sqrt(vector1.x ** 2 + vector1.y ** 2);
+    const magnitude2 = Math.sqrt(vector2.x ** 2 + vector2.y ** 2);
+    if (Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI) > 40) {
+        console.log(vector1, vector2, Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI))
+    }
+    return Math.acos(dotProduct / (magnitude1 * magnitude2)) * (180 / Math.PI);
+}
+
+function checkDirectionChange() {
+    const numPoints = drawingCoordinates.length;
+
+    const vectorLength = 5
+    const angleThreshold = 45
+    const minPoints = 3*vectorLength
+
+    if (numPoints >= minPoints) {
+        const startVector = calculateVector(
+            drawingCoordinates[numPoints - vectorLength * 2],
+            drawingCoordinates[numPoints - vectorLength]
+        );
+        const endVector = calculateVector(
+            drawingCoordinates[numPoints - vectorLength],
+            drawingCoordinates[numPoints - 1]
+        );
+
+        const angleChange = calculateAngle(startVector, endVector);
+
+        console.log(angleChange);
+
+        if (angleChange > angleThreshold) {
+            drawRedCircle(drawingCoordinates[numPoints - vectorLength * 2].x, drawingCoordinates[numPoints - vectorLength * 2].y);
+            drawRedCircle(drawingCoordinates[numPoints - vectorLength].x, drawingCoordinates[numPoints - vectorLength].y);
+            drawRedCircle(drawingCoordinates[numPoints - 1].x, drawingCoordinates[numPoints - 1].y);
+
+            endDrawing();
+            percentageContainer.textContent = "Ты изменил направление!";
+            console.log("Ты изменил направление!", angleChange);
+            return;
+        }
+    }
+}
+
+function drawRedCircle(x, y) {
+    ctx.fillStyle = "#ff0000";
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, 2 * Math.PI);
+    ctx.fill();
 }
