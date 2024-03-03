@@ -8,6 +8,7 @@ let drawingCoordinates = [];
 let previousVector = null;
 
 
+
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
@@ -75,7 +76,12 @@ function endDrawing() {
         isDrawing = false;
         ctx.closePath();
         updatePercentage()
+
+
+        calculateDeviationPercentage()
         console.log(drawingCoordinates);
+
+        drawIdealCircle()
     }
 }
 // 
@@ -83,7 +89,7 @@ function endDrawing() {
 function updatePercentage() {
     const maxIdealPoints = 50;
 
-    let idealRadius;
+
 
     if (drawingCoordinates.length <= maxIdealPoints) {
         idealRadius = calculateDistanceToCenter(
@@ -99,8 +105,9 @@ function updatePercentage() {
                 drawingCoordinates[i].y
             );
         }
-        idealRadius = totalRadius / maxIdealPoints;
+        idealRadius = totalRadius / drawingCoordinates.length;
     }
+    console.log("идеал рад ", idealRadius)
 
     const userRadius = Math.sqrt(
         (drawingCoordinates[drawingCoordinates.length - 1].x - canvas.width / 2) ** 2 +
@@ -109,7 +116,7 @@ function updatePercentage() {
 
     const matchPercentage = Math.floor((1 - Math.abs(idealRadius - userRadius) / idealRadius) * 100);
     // console.log('радиус: ' + (idealRadius))
-    percentageContainer.textContent = `Совпадение: ${matchPercentage}%`;
+    percentageContainer.textContent = `${matchPercentage}%`;
 }
 
 function calculateDistanceToCenter(x, y) {
@@ -143,7 +150,7 @@ function checkDirectionChange() {
 
     const vectorLength = 5
     const angleThreshold = 45
-    const minPoints = 3*vectorLength
+    const minPoints = 3 * vectorLength
 
     if (numPoints >= minPoints) {
         const startVector = calculateVector(
@@ -177,4 +184,33 @@ function drawRedCircle(x, y) {
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, 2 * Math.PI);
     ctx.fill();
+}
+function drawIdealCircle() {
+    ctx.fillStyle = "#ffAA80";
+    console.log("ideal rad", idealRadius)
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, idealRadius, 0, 2 * Math.PI);
+    ctx.stroke();
+}
+
+function calculateDeviationPercentage() {
+    const numPoints = drawingCoordinates.length;
+
+    if (numPoints === 0) {
+        return 0;
+    }
+
+    let totalPercentage = 0;
+
+    for (let i = 0; i < numPoints; i++) {
+        const userRadius = calculateDistanceToCenter(drawingCoordinates[i].x, drawingCoordinates[i].y);
+        const deviation = Math.abs(userRadius - idealRadius);
+        const percentage = Math.max(0, Math.min(100, (1 - deviation / idealRadius) * 100));
+        totalPercentage += percentage;
+    }
+
+    const averagePercentage = totalPercentage / numPoints;
+    percentageContainer.textContent = `Совпадение: ${averagePercentage}%`;
+
+    return averagePercentage;
 }
