@@ -37,7 +37,7 @@ canvas.addEventListener('mousemove', draw);
 canvas.addEventListener('mouseup', endDrawing);
 canvas.addEventListener('mouseout', endDrawing);
 
-const lineWidth = 5;
+const lineWidth = 15;
 const lineColor = "#0000ff";
 const directionChangeThreshold = 45;
 
@@ -46,11 +46,13 @@ function startDrawing(e) {
     isClosed = false
     is360R = false
     is360L = false;
+    currentRadius = 1.1*lineWidth
     drawingCoordinates = [];
 
     previousVector = null;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    greed();
 
 
     paintCentralPoint()
@@ -61,12 +63,13 @@ function startDrawing(e) {
 }
 
 let hasCrossedTrigger = false;
+let currentRadius = 1.1*lineWidth
+
 function draw(e) {
     if (!isDrawing) return;
 
     const x = e.clientX - canvas.getBoundingClientRect().left;
     const y = e.clientY - canvas.getBoundingClientRect().top;
-
 
     if (checkIfCircleFinished()) {
         isDrawing = false;
@@ -74,30 +77,80 @@ function draw(e) {
         return;
     }
 
+    const userRadius = calculateDistanceToCenter(x, y);
+    const deviation = Math.abs(userRadius - idealRadius);
+    const percentage = Math.max(0, Math.min(100, (1 - deviation / idealRadius) * 100)) || 100;
 
-    drawingCoordinates.push({ x, y });
-    ctx.lineTo(x, y);
+    const gradient = getColorGradient(percentage);
+
+    drawingCoordinates.push({ x, y, gradient });
+
+    if (drawingCoordinates.length > 1) {
+        const prevPoint = drawingCoordinates[drawingCoordinates.length - 2];
+        ctx.strokeStyle = prevPoint.gradient;
+        ctx.beginPath();
+        ctx.moveTo(prevPoint.x, prevPoint.y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+    }
+
+  
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x, y, currentRadius/2, 0, 2 * Math.PI);
+    ctx.fill();
+
+   
+    ctx.strokeStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
     checkDirectionChange();
     updatePercentage();
     ctx.stroke();
 
-
-
-
-
-
-
+    if (currentRadius > lineWidth) {
+        currentRadius -= 0.01; 
+    }
 }
 
+function getColorGradient(percentage) {
+    const colorStops = [
+
+        { percent: 5, color: [255, 0, 0] },
+        { percent: 20, color: [212, 15, 87] },
+        { percent: 30, color: [245, 37, 148] },
+        { percent: 60, color: [250, 47, 132] },
+        { percent: 70, color: [237, 111, 187] },
+        { percent: 75, color: [255, 255, 255] },
+        { percent: 85, color: [220, 104, 237] },
+        { percent: 90, color: [104, 206, 237]},
+        { percent: 95, color: [104, 137, 237] },
+        { percent: 99, color: [0, 0, 255] },
+    ];
+
+    for (let i = 1; i < colorStops.length; i++) {
+        if (percentage <= colorStops[i].percent) {
+            const prevColorStop = colorStops[i - 1];
+            const nextColorStop = colorStops[i];
+
+            const t = (percentage - prevColorStop.percent) / (nextColorStop.percent - prevColorStop.percent);
+
+            const r = Math.floor(prevColorStop.color[0] + t * (nextColorStop.color[0] - prevColorStop.color[0]));
+            const g = Math.floor(prevColorStop.color[1] + t * (nextColorStop.color[1] - prevColorStop.color[1]));
+            const b = Math.floor(prevColorStop.color[2] + t * (nextColorStop.color[2] - prevColorStop.color[2]));
+
+            return `rgb(${r},${g},${b})`;
+        }
+    }
+
+    return `rgb(237, 111, 187)`;
+}
 
 
 function endDrawing() {
 
     isDrawing = false;
     ctx.closePath();
-    // updatePercentage()
-
-
 
     console.log(drawingCoordinates);
     calculateDeviationPercentage()
@@ -203,7 +256,8 @@ function drawRedCircle(x, y) {
     ctx.fill();
 }
 function drawIdealCircle() {
-    ctx.fillStyle = "#ffAA80";
+    ctx.strokeStyle = "#c2c2c2";
+    ctx.lineWidth = 15;
     console.log("ideal rad", idealRadius)
     ctx.beginPath();
     ctx.arc(canvas.width / 2, canvas.height / 2, idealRadius, 0, 2 * Math.PI);
@@ -272,5 +326,26 @@ function checkIfCircleFinished() {
     isClosed = result
 
     return result;
+}
+greed();
+function greed(){
+    let w = canvas.clientWidth * 0.95;
+    let h = canvas.clientHeight;
+    let x =20;
+    let y = 20;
+    ctx.beginPath();
+    ctx.strokeStyle = '#3873fd56';
+    for (let i = 0; i<= w; i += x){
+        ctx.moveTo(i,0);
+        ctx.lineTo(i,h);
+    
+    }
+    for (let i = 0; i<= h ;i += y){
+        ctx.moveTo(0,i);
+        ctx.lineTo(canvas.clientWidth,i);
+
+    }
+    ctx.lineWidth = 2;  
+    ctx.stroke();
 }
 
