@@ -1,11 +1,12 @@
 const percentageContainer = document.getElementById('percentageContainer');
 let idealRadius = 0;
-
 const canvas = document.getElementById('myCanvas');
 const ctx = canvas.getContext('2d');
 let isDrawing = false;
 let drawingCoordinates = [];
 let previousVector = null;
+
+
 
 
 
@@ -32,10 +33,34 @@ window.addEventListener('resize', () => {
     ctx.fill();
 });
 
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('mouseup', endDrawing);
-canvas.addEventListener('mouseout', endDrawing);
+
+
+
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('mouseout', handleEnd);
+canvas.addEventListener('touchstart', handleStart);
+canvas.addEventListener('touchmove', handleMove);
+canvas.addEventListener('touchend', handleEnd);
+canvas.addEventListener('touchcancel', handleEnd);
+
+function handleStart(e) {
+    e.preventDefault();
+    const touch = e.type === 'touchstart' ? e.touches[0] : e;
+    startDrawing(touch);
+}
+
+function handleMove(e) {
+    e.preventDefault();
+    const touch = e.type === 'touchmove' ? e.touches[0] : e;
+    draw(touch);
+}
+
+function handleEnd(e) {
+    e.preventDefault();
+    endDrawing();
+}
 
 const lineWidth = 15;
 const lineColor = "#0000ff";
@@ -68,8 +93,8 @@ let currentRadius = 1.1*lineWidth
 function draw(e) {
     if (!isDrawing) return;
 
-    const x = e.clientX - canvas.getBoundingClientRect().left;
-    const y = e.clientY - canvas.getBoundingClientRect().top;
+    const x = e.clientX || e.touches[0].clientX;
+    const y = e.clientY || e.touches[0].clientY;
 
     if (checkIfCircleFinished()) {
         isDrawing = false;
